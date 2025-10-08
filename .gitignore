@@ -6,6 +6,8 @@ out_fancy_pca_caltech101/
 out_fancy_pca_caltech101_std_0/
 out_fancy_pca_caltech101_std_0-1/
 out_fancy_pca_caltech101_std_1/
+venv
+*.bat
 *.zip
 *.png
 *.jpg
