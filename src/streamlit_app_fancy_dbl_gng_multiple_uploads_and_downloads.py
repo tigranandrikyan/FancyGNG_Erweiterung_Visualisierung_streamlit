@@ -8,37 +8,43 @@ from tqdm import trange
 from PIL import Image
 import matplotlib.pyplot as plt
 import io, zipfile
+import datetime
 
 
 
-# Session-States initialisieren
-if "uploaded_files" not in st.session_state:
-    st.session_state.uploaded_files = None
-if "image_results" not in st.session_state:
-    st.session_state.image_results = {}  # {filename: {"original": Image, "aug_images": [...], "cluster_count": int, "data_shape": tuple}}
-if "fig" not in st.session_state:
-    st.session_state.fig = {}
-if "fig_png" not in st.session_state:
-    st.session_state.fig_png = {}
-if "done" not in st.session_state:
-    st.session_state.done = False
+def init_session():
+    # Session-States initialisieren
+    if "uploaded_files" not in st.session_state:
+        st.session_state.uploaded_files = None
+    if "image_results" not in st.session_state:
+        st.session_state.image_results = {}  # {filename: {"original": Image, "aug_images": [...], "cluster_count": int, "data_shape": tuple}}
+    if "fig" not in st.session_state:
+        st.session_state.fig = {}
+    if "fig_png" not in st.session_state:
+        st.session_state.fig_png = {}
+    if "done" not in st.session_state:
+        st.session_state.done = False
+    if "last_picture" not in st.session_state:
+        st.session_state.last_picture = None
+
+init_session()
 
 def reset_session():
     st.session_state.clear()
+    init_session()
 
 def reset_for_new_run():
     st.session_state.image_results = {}
     st.session_state.fig = {}
     st.session_state.fig_png = {}
     
-# UI 
+# Streamlit UI
 st.title("🧠 DBL-GNG Image Augmentation")
 st.write("Lade ein oder mehrere Bilder hoch oder nimm eines mit der Kamera auf.")
 
 
-#Eingabeoption 
-#input_option = st.radio("Bildquelle auswählen:", ["Datei-Upload, Kamera"])
-input_option = st.radio("Bildquelle auswählen:", ["Datei-Upload"])
+# Eingabeoption
+input_option = st.radio("Bildquelle auswählen:", ["Datei-Upload", "Kamera"])
 
 if input_option == "Datei-Upload":
     uploaded_files = st.file_uploader(
@@ -47,18 +53,36 @@ if input_option == "Datei-Upload":
         accept_multiple_files=True,
         on_change= reset_session
     )
-#elif input_option == "Kamera":
-#    uploaded_files = st.camera_input("Bild aufnehmen")
 
-if uploaded_files:
-    st.session_state.uploaded_files = uploaded_files
+    if uploaded_files:
+        st.session_state.uploaded_files = uploaded_files
+
+elif input_option == "Kamera":
+    camera_image = st.camera_input("Bild aufnehmen")
+    if camera_image is not None:
+
+        if st.session_state.last_picture is None:
+            reset_session()
+
+        elif st.session_state.last_picture is not None and camera_image.getvalue() != st.session_state.last_picture:
+            reset_session()
+            
+        timestamp = datetime.datetime.now().strftime("%Y%m%d")
+        camera_image.name = f"camera_{timestamp}.jpg"        
+        st.session_state.uploaded_files = [camera_image]
+        st.session_state.last_picture = camera_image.getvalue()      
+        
+       
+        
+
+
 
 start_augmentation = st.button("🚀 Starte Augmentierung")
 
 if start_augmentation and st.session_state.done:
     reset_for_new_run()
 
-def generate_augmentations(image_data, size):
+def generate_augmentations(image_data):
     """Führt den gesamten DBL-GNG + Clustering + Augmentierungsprozess durch."""
     gng = dbl_gng.DBL_GNG(3, constants.MAX_NODES)
     gng.initializeDistributedNode(image_data, constants.SARTING_NODES)
@@ -121,19 +145,19 @@ def fig_to_png(fig):
     buf.seek(0)
     return buf
 
-# Hauptverarbeitung 
+# Hauptverarbeitung
 if (start_augmentation or st.session_state.done) and st.session_state.uploaded_files:
     for uploaded_file in st.session_state.uploaded_files:
         filename = uploaded_file.name
 
         # Falls bereits berechnet, überspringen
-        if filename not in st.session_state.image_results:
+        if filename not in st.session_state.image_results and start_augmentation:
             with st.spinner(f"Verarbeite {filename} ..."):
                 image = Image.open(uploaded_file).convert("RGB")
                 image_array = np.asarray(image)
                 data_array = image_array.reshape(-1, 3) / constants.MAX_COLOR_VALUE
 
-                aug_images, cluster_count = generate_augmentations(data_array, image.size)
+                aug_images, cluster_count = generate_augmentations(data_array)
                 st.session_state.image_results[filename] = {
                     "original": image,
                     "aug_images": aug_images,
@@ -163,7 +187,7 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
 
 
 
-# --- Download-Bereich ---
+# Download-Bereich
 if st.session_state.image_results:
     st.divider()
     zip_buffer = io.BytesIO()
