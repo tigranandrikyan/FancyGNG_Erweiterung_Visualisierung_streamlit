@@ -9,8 +9,11 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import io, zipfile
 import datetime
+import fancy_pca as FP
 
-
+FANCYGNG_STR = "FancyGNG"
+FANCYPCA_STR = "FancyPCA"
+COLORJITTER_STR = "Color-Jitter"
 
 def init_session():
     # Session-States initialisieren
@@ -26,6 +29,8 @@ def init_session():
         st.session_state.done = False
     if "last_picture" not in st.session_state:
         st.session_state.last_picture = None
+    if "last_aug" not in st.session_state:
+        st.session_state.last_aug = None
 
 init_session()
 
@@ -44,6 +49,13 @@ st.write("Lade ein oder mehrere Bilder hoch oder nimm eines mit der Kamera auf."
 
 
 # Eingabeoption
+aug_option = st.selectbox(
+    "Wähle das Augmentationsverfahren:",
+    [FANCYGNG_STR, FANCYPCA_STR, COLORJITTER_STR],
+    index=0
+)
+st.write(f"Gewähltes Verfahren: {aug_option}")
+
 input_option = st.radio("Bildquelle auswählen:", ["Datei-Upload", "Kamera"])
 
 if input_option == "Datei-Upload":
@@ -75,14 +87,68 @@ elif input_option == "Kamera":
        
         
 
-
+show_point_cloud = st.checkbox("Zeige die Punktwolke")
 
 start_augmentation = st.button("🚀 Starte Augmentierung")
 
 if start_augmentation and st.session_state.done:
     reset_for_new_run()
 
-def generate_augmentations(image_data):
+def fancy_pca(image_data, original_iamge):
+    aug_images = generate_fancy_pca_augmentations(image_data)
+    st.session_state.image_results[filename] = {
+                   "original": original_iamge,
+                   "aug_images": aug_images,
+                   "data_shape": image_data.shape,
+    }
+
+
+
+def generate_fancy_pca_augmentations(image_data):
+    fancy_pca_transform = FP.FancyPCA()
+    aug_images = []
+    for _ in range(constants.AUG_COUNT):
+         # Wendet Fancy PCA auf das Bild an (Kopie wird verwendet, um Original nicht zu überschreiben, so wie bei fancy_pca_runner.py)
+        fancy_pca_image = fancy_pca_transform.fancy_pca(image_data.copy())
+        # Umwandlung auf den Bereich [0, 255] und zu uint8
+        fancy_pca_image = (fancy_pca_image * 255).astype(np.uint8)
+        # Rückumwandlung in die ursprüngliche Bildform: Höhe x Breite x 3
+        height, width, channels = image.size[1], image.size[0], 3
+        fancy_pca_image = fancy_pca_image.reshape((height, width, channels))
+        try:
+            aug_image = Image.fromarray(fancy_pca_image)
+            aug_images.append(aug_image)
+        except Exception as e:
+            st.write(f"Fehler bei der Bildumwandlung: {e}")  ### Debugging ###
+
+    return aug_images
+
+def show_fancy_pca_info(filename, info):
+    st.divider()
+    st.subheader(f"📸 {filename}")
+    st.write(f"**Bildgröße:** {info['original'].size}")
+    st.write(f"**Bildarray-Form:** {info['data_shape']}")
+
+
+def fancy_gng(image_data, original_image):
+    aug_images, cluster_count = generate_fancy_gng_augmentations(image_data)
+    st.session_state.image_results[filename] = {
+                   "original": original_image,
+                   "aug_images": aug_images,
+                   "cluster_count": cluster_count,
+                   "data_shape": image_data.shape,
+    }
+
+
+def show_fancy_gng_info(filename, info):
+    st.divider()
+    st.subheader(f"📸 {filename}")
+    st.write(f"**Bildgröße:** {info['original'].size}")
+    st.write(f"**Bildarray-Form:** {info['data_shape']}")
+    st.write(f"**Anzahl der Cluster:** {info['cluster_count']}")
+
+
+def generate_fancy_gng_augmentations(image_data):
     """Führt den gesamten DBL-GNG + Clustering + Augmentierungsprozess durch."""
     gng = dbl_gng.DBL_GNG(3, constants.MAX_NODES)
     gng.initializeDistributedNode(image_data, constants.SARTING_NODES)
@@ -137,13 +203,31 @@ def create_plot(all_images):
         axs[1, idx].imshow(img)
         axs[1, idx].axis("off")
     fig.tight_layout()
-    return fig        
+    return fig
+
+
+def cerate_simple_plot(all_images):
+    fig, axs = plt.subplots(1, len(all_images), figsize=(15, 6))
+    for idx, img in enumerate(all_images):
+        axs[idx].set_title("Original" if idx == 0 else f"Aug {idx}")
+        axs[idx].imshow(img)
+        axs[idx].axis("off")
+    fig.tight_layout()
+    return fig    
+
 
 def fig_to_png(fig):
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
     buf.seek(0)
     return buf
+
+
+
+
+
+
+
 
 # Hauptverarbeitung
 if (start_augmentation or st.session_state.done) and st.session_state.uploaded_files:
@@ -152,34 +236,45 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
 
         # Falls bereits berechnet, überspringen
         if filename not in st.session_state.image_results and start_augmentation:
+            st.session_state.last_aug = aug_option
             with st.spinner(f"Verarbeite {filename} ..."):
                 image = Image.open(uploaded_file).convert("RGB")
                 image_array = np.asarray(image)
                 data_array = image_array.reshape(-1, 3) / constants.MAX_COLOR_VALUE
 
-                aug_images, cluster_count = generate_augmentations(data_array)
-                st.session_state.image_results[filename] = {
-                    "original": image,
-                    "aug_images": aug_images,
-                    "cluster_count": cluster_count,
-                    "data_shape": data_array.shape,
-                }
+                if aug_option == FANCYGNG_STR:
+                    fancy_gng(data_array, image)
+                
+                elif aug_option == FANCYPCA_STR:
+                    fancy_pca(data_array, image)
+                
 
         # Anzeige
         info = st.session_state.image_results[filename]
-        st.divider()
-        st.subheader(f"📸 {filename}")
-        st.write(f"**Bildgröße:** {info['original'].size}")
-        st.write(f"**Bildarray-Form:** {info['data_shape']}")
-        st.write(f"**Anzahl der Cluster:** {info['cluster_count']}")
+        if aug_option == FANCYGNG_STR:
+            show_fancy_gng_info(filename, info)
+           
+        
+        elif aug_option == FANCYPCA_STR:
+            show_fancy_pca_info(filename, info)
+        
+            
 
         # Punktwolke & Augmentierungen anzeigen
-        if filename not in st.session_state.fig:
-            print("New")
-            st.session_state.fig[filename] = create_plot([info["original"]] + info["aug_images"])
-            png_buf = fig_to_png(st.session_state.fig[filename])
-            st.session_state.fig_png[filename] = png_buf.getvalue()
-       
+        if show_point_cloud:
+            if filename not in st.session_state.fig:
+                with st.spinner(f"Augementation von {filename} abgeschlossen...Starte Visualisierung der Punktwolke"):
+                    st.session_state.fig[filename] = create_plot([info["original"]] + info["aug_images"])
+                    png_buf = fig_to_png(st.session_state.fig[filename])
+                    st.session_state.fig_png[filename] = png_buf.getvalue()
+
+            
+        else:
+            if filename not in st.session_state.fig:
+                st.session_state.fig[filename] = cerate_simple_plot([info["original"]] + info["aug_images"])
+                png_buf = fig_to_png(st.session_state.fig[filename])
+                st.session_state.fig_png[filename] = png_buf.getvalue()
+
         st.image(st.session_state.fig_png[filename])
     st.session_state.done = True
         
@@ -197,7 +292,7 @@ if st.session_state.image_results:
             for i, img in enumerate(info["aug_images"]):
                 buf = io.BytesIO()
                 img.save(buf, format="JPEG")
-                zipf.writestr(f"{base_name}_aug_{i+1}.jpg", buf.getvalue())
+                zipf.writestr(f"{base_name}_aug_{aug_option}_{i+1}.jpg", buf.getvalue())
 
     st.download_button(
         label="⬇️ Augmentierte Bilder als ZIP herunterladen",
