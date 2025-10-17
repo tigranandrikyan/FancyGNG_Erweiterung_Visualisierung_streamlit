@@ -11,10 +11,14 @@ import io, zipfile
 import datetime
 import fancy_pca as FP
 
+
+#----------------------------UI Constants-------------------------------------------------------
 FANCYGNG_STR = "FancyGNG"
 FANCYPCA_STR = "FancyPCA"
 COLORJITTER_STR = "Color-Jitter"
 
+
+#-----------------------------Session------------------------------------------------------------
 def init_session():
     # Session-States initialisieren
     if "uploaded_files" not in st.session_state:
@@ -42,13 +46,15 @@ def reset_for_new_run():
     st.session_state.image_results = {}
     st.session_state.fig = {}
     st.session_state.fig_png = {}
-    
-# Streamlit UI
+
+
+
+#--------------------------Streamlit UI-------------------------------
 st.title("🧠 DBL-GNG Image Augmentation")
 st.write("Lade ein oder mehrere Bilder hoch oder nimm eines mit der Kamera auf.")
 
 
-# Eingabeoption
+# Augementation wählen
 aug_option = st.selectbox(
     "Wähle das Augmentationsverfahren:",
     [FANCYGNG_STR, FANCYPCA_STR, COLORJITTER_STR],
@@ -56,6 +62,8 @@ aug_option = st.selectbox(
 )
 st.write(f"Gewähltes Verfahren: {aug_option}")
 
+
+# Quelle wählen
 input_option = st.radio("Bildquelle auswählen:", ["Datei-Upload", "Kamera"])
 
 if input_option == "Datei-Upload":
@@ -86,14 +94,21 @@ elif input_option == "Kamera":
         
        
         
-
+#Punktwolke anzeigen
 show_point_cloud = st.checkbox("Zeige die Punktwolke")
 
+#Augmentation starten
 start_augmentation = st.button("🚀 Starte Augmentierung")
-
 if start_augmentation and st.session_state.done:
     reset_for_new_run()
 
+
+
+
+
+
+
+#-----------------------------------FancyPCA------------------------------------------
 def fancy_pca(image_data, original_iamge):
     aug_images = generate_fancy_pca_augmentations(image_data)
     st.session_state.image_results[filename] = {
@@ -130,6 +145,10 @@ def show_fancy_pca_info(filename, info):
     st.write(f"**Bildarray-Form:** {info['data_shape']}")
 
 
+
+
+
+#-------------------------------------FancyGNG---------------------------------------------
 def fancy_gng(image_data, original_image):
     aug_images, cluster_count = generate_fancy_gng_augmentations(image_data)
     st.session_state.image_results[filename] = {
@@ -184,6 +203,10 @@ def generate_fancy_gng_augmentations(image_data):
         aug_images.append(aug_image)
     return aug_images, cluster_count
 
+
+
+
+#-----------------------------Plotting----------------------------------------------
 def create_plot(all_images):
     fig, axs = plt.subplots(2, len(all_images), figsize=(15, 6))
     for idx, img in enumerate(all_images):
@@ -227,9 +250,26 @@ def fig_to_png(fig):
 
 
 
+#---------------------------Hilfsfunktion und Variablen-------------------------------------------------
+
+def keep_dependent_ui_element_at_random_button(dependency, dependency_func_map : dict):
+    if dependency is not None: 
+        entry = dependency_func_map.get(dependency)
+        if entry and len(entry) > 0:
+            func = entry[0]
+            args = entry[1:]
+            return func(*args)  
 
 
-# Hauptverarbeitung
+show_fancy_pca_info_bool = (aug_option == FANCYPCA_STR and start_augmentation) or (aug_option == FANCYGNG_STR and st.session_state.last_aug == FANCYPCA_STR and not start_augmentation)
+show_fancy_gng_info_bool = (aug_option == FANCYGNG_STR and start_augmentation) or (aug_option == FANCYPCA_STR and st.session_state.last_aug == FANCYGNG_STR and not start_augmentation)
+
+
+
+
+
+
+#------------------------------------------Hauptverarbeitung----------------------------------------------------------------------------------
 if (start_augmentation or st.session_state.done) and st.session_state.uploaded_files:
     for uploaded_file in st.session_state.uploaded_files:
         filename = uploaded_file.name
@@ -251,16 +291,20 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
 
         # Anzeige
         info = st.session_state.image_results[filename]
-        if aug_option == FANCYGNG_STR:
+       
+        if show_fancy_gng_info_bool:
             show_fancy_gng_info(filename, info)
            
         
-        elif aug_option == FANCYPCA_STR:
+        elif show_fancy_pca_info_bool:
             show_fancy_pca_info(filename, info)
         
-            
-
-        # Punktwolke & Augmentierungen anzeigen
+        else:
+            keep_dependent_ui_element_at_random_button(st.session_state.last_aug, {FANCYPCA_STR: [show_fancy_pca_info, filename, info], 
+                                                                                FANCYGNG_STR: [show_fancy_gng_info, filename, info]} ) 
+        
+       
+        # Punktwolke & Augmentierungen generieren
         if show_point_cloud:
             if filename not in st.session_state.fig:
                 with st.spinner(f"Augementation von {filename} abgeschlossen...Starte Visualisierung der Punktwolke"):
@@ -275,6 +319,7 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
                 png_buf = fig_to_png(st.session_state.fig[filename])
                 st.session_state.fig_png[filename] = png_buf.getvalue()
 
+        #Grafik anzeigen
         st.image(st.session_state.fig_png[filename])
     st.session_state.done = True
         
@@ -282,7 +327,7 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
 
 
 
-# Download-Bereich
+#--------------------------------------------Download-Bereich----------------------------------------------
 if st.session_state.image_results:
     st.divider()
     zip_buffer = io.BytesIO()
@@ -292,13 +337,16 @@ if st.session_state.image_results:
             for i, img in enumerate(info["aug_images"]):
                 buf = io.BytesIO()
                 img.save(buf, format="JPEG")
-                zipf.writestr(f"{base_name}_aug_{aug_option}_{i+1}.jpg", buf.getvalue())
+                zipf.writestr(f"{base_name}_aug_{st.session_state.last_aug}_{i+1}.jpg", buf.getvalue())
 
-    st.download_button(
+    download = st.download_button(
         label="⬇️ Augmentierte Bilder als ZIP herunterladen",
         data=zip_buffer.getvalue(),
         file_name="augmented_images.zip",
         mime="application/zip",
     )
+
+    
+
 
 
