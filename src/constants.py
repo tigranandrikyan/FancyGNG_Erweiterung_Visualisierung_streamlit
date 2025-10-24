@@ -32,3 +32,8 @@ FANCY_PCA_STANDARD_DEVIATION = 5 ### Debugging: setze auf 5 für starke Änderun
 #Stärke der Glättung
 SIGMA = 3
 
+#Color-jitter
+BRIGHTNESS = 0.4
+CONTRAST = 0.4
+SATURATION = 0.4
+HUE = 0.1
