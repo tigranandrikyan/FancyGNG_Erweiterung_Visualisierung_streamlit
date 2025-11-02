@@ -17,6 +17,8 @@ import fancy_pca as FP
 FANCYGNG_STR = "FancyGNG"
 FANCYPCA_STR = "FancyPCA"
 COLORJITTER_STR = "Color-Jitter"
+MAX_UI_AUG_COUNT = 10
+MAX_UI_AUG_COUNT += 1
 
 
 #-----------------------------Session------------------------------------------------------------
@@ -109,11 +111,51 @@ if start_augmentation and st.session_state.done:
     reset_for_new_run()
 
 
+#----------------------------Sidebar für Parameter---------------------------------
+st.sidebar.header("⚙️ Parameter-Einstellungen")
+
+# Allgemeine Parameter (für alle Methoden)
+st.sidebar.subheader("Allgemein")
+AUG_COUNT = 5
+AUG_COUNT = st.sidebar.number_input("Anzahl der Augmentationen", min_value=1, max_value=100,  value=getattr(constants, "AUG_COUNT", 3))
+
+# Dynamische Sektionen je nach ausgewählter Methode
+if aug_option == COLORJITTER_STR:
+    st.sidebar.subheader("🧮 Color Jitter Parameter")
+    BRIGHTNESS = st.sidebar.slider("Helligkeit", 0.0, 2.0, getattr(constants, "BRIGHTNESS", 0.5))
+    CONTRAST = st.sidebar.slider("Kontrast", 0.0, 2.0, getattr(constants, "CONTRAST", 0.5))
+    SATURATION = st.sidebar.slider("Sättigung", 0.0, 2.0, getattr(constants, "SATURATION", 0.5))
+    HUE = st.sidebar.slider("Farbton", 0.0, 0.5, getattr(constants, "HUE", 0.1))
+
+    # Werte übernehmen
+    constants.BRIGHTNESS = BRIGHTNESS
+    constants.CONTRAST = CONTRAST
+    constants.SATURATION = SATURATION
+    constants.HUE = HUE
+    
+    
+
+elif aug_option == FANCYGNG_STR:
+    st.sidebar.subheader("🧮 Fancy GNG Parameter")
+    STANDARD_DEVIATION = st.sidebar.slider("Standard Abweichung", 1, 10, getattr(constants, "FANCY_PCA_STANDARD_DEVIATION", 20))
+    MEAN = st.sidebar.slider("Mittelwert", 0, 10, getattr(constants, "FANCY_PCA_MEAN", 3))  
+    USE_SMOOTH = st.sidebar.checkbox("Nutze Glättung", value=True)
+    constants.FANCY_PCA_STANDARD_DEVIATION = STANDARD_DEVIATION
+    constants.FANCY_PCA_MEAN = MEAN
+    constants.USE_SMOOTH = USE_SMOOTH
+    
 
 
+elif aug_option == FANCYPCA_STR:
+    st.sidebar.subheader("🧮 Fancy PCA Parameter")
+    STANDARD_DEVIATION = st.sidebar.slider("Standard Abweichung", 0, 10, getattr(constants, "FANCY_PCA_STANDARD_DEVIATION", 20))
+    MEAN = st.sidebar.slider("Mittelwert", 0, 10, getattr(constants, "FANCY_PCA_MEAN", 3))  
+    constants.FANCY_PCA_STANDARD_DEVIATION = STANDARD_DEVIATION
+    constants.FANCY_PCA_MEAN = MEAN
+    
+constants.AUG_COUNT = AUG_COUNT
 
-
-
+print(constants.FANCY_PCA_STANDARD_DEVIATION, constants.FANCY_PCA_MEAN, constants.USE_SMOOTH)
 #-----------------------------------FancyPCA------------------------------------------
 def fancy_pca(image_data, original_iamge):
     aug_images = generate_fancy_pca_augmentations(image_data)
@@ -249,7 +291,8 @@ def show_color_jitter_info(filename, info):
 
 #-----------------------------Plotting----------------------------------------------
 def create_point_cloud(all_images, axs, row_idx = 0):
-    for idx, img in enumerate(all_images):
+    images = all_images if len(all_images) < MAX_UI_AUG_COUNT else all_images[:MAX_UI_AUG_COUNT]
+    for idx, img in enumerate(images):
         ax = get_fig_ax(axs, row_idx, idx)
         if len(ax.images) == 0 and len(ax.collections) == 0:  # nur wenn Achse leer
             rgb_image = img.convert("RGB")
@@ -268,8 +311,9 @@ def create_point_cloud(all_images, axs, row_idx = 0):
         
 
 def create_gray_images(all_images, axs, row_idx = 0):
+    images = all_images if len(all_images) < MAX_UI_AUG_COUNT else all_images[:MAX_UI_AUG_COUNT]
     grayscale_transform = transforms.Grayscale()
-    for idx, img in enumerate(all_images):
+    for idx, img in enumerate(images):
         ax = get_fig_ax(axs, row_idx, idx)
         if len(ax.images) == 0 and len(ax.collections) == 0:
             gray = grayscale_transform(img)
@@ -279,7 +323,8 @@ def create_gray_images(all_images, axs, row_idx = 0):
 
 
 def create_main_plot(all_images, axs, row_idx = 0):
-    for idx, img in enumerate(all_images):
+    images = all_images if len(all_images) < MAX_UI_AUG_COUNT else all_images[:MAX_UI_AUG_COUNT]
+    for idx, img in enumerate(images):
         ax = get_fig_ax(axs, row_idx, idx)
         if len(ax.images) == 0 and len(ax.collections) == 0:  
             ax.imshow(img)
@@ -367,8 +412,8 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
         with st.spinner(f"Augementation von {filename} abgeschlossen...Starte Visualisierung"):
             if filename not in st.session_state.fig_png:
                 ax_counter = sum(1 for opt in option_buttons if opt) + 1
-
-                fig, axs = plt.subplots(ax_counter, constants.AUG_COUNT + 1, figsize=(15, 6))
+                cols = constants.AUG_COUNT + 1 if constants.AUG_COUNT < MAX_UI_AUG_COUNT else MAX_UI_AUG_COUNT
+                fig, axs = plt.subplots(ax_counter, cols, figsize=(15, 6))
 
 
                 current_row = 0

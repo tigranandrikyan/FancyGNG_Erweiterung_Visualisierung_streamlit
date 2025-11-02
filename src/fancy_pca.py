@@ -9,10 +9,6 @@ import constants
 
 class FancyPCA: 
     
-    # Konstruktor der Klasse mit Standardwerten für Mittelwert und Standardabweichung aus constants.py
-    def __init__(self, mean=constants.FANCY_PCA_MEAN, standard_deviation=constants.FANCY_PCA_STANDARD_DEVIATION):
-        self.mean = mean # Speichert den Mittelwert für die Modifikation der Eigenwerte
-        self.standard_deviation = standard_deviation # Speichert die Standardabweichung für die Modifikation der Eigenwerte
  
     def fancy_pca(self, data):
         mean_free_data = data - np.mean(data, axis=(0,1)) # Berechnung des Mittelwerts der Daten entlang der ersten beiden Achsen und Subtraktion, um die Daten zu zentrieren
@@ -20,7 +16,8 @@ class FancyPCA:
         eig_values, eig_vecs = np.linalg.eigh(data_covarianz) # Berechnung der Eigenwerte und Eigenvektoren der Kovarianzmatrix
         #print('test', eig_values / np.sum(eig_values)) ### Debugging ###
         # Zufällige Skalierung der Eigenwerte mit einer Normalverteilung basierend auf Mittelwert und Standardabweichung
-        alpha = self.standard_deviation*np.random.randn(3)+self.mean
+        alpha = constants.FANCY_PCA_STANDARD_DEVIATION * np.random.randn(3) + constants.FANCY_PCA_MEAN
+        print(alpha)
         #alpha = np.random.normal(self.mean, self.standard_deviation) # Pauls alpha (ist nur eine Konstante, aber wir brauchen alpha_i, i=1,2,3)
         #print(alpha) ### Debugging ###
         eig_values *= alpha
