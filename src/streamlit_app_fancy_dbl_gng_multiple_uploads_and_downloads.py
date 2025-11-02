@@ -140,6 +140,11 @@ elif aug_option == FANCYGNG_STR:
     STANDARD_DEVIATION = st.sidebar.slider("Standard Abweichung", 1, 10, getattr(constants, "FANCY_PCA_STANDARD_DEVIATION", 20))
     MEAN = st.sidebar.slider("Mittelwert", 0, 10, getattr(constants, "FANCY_PCA_MEAN", 3))  
     USE_SMOOTH = st.sidebar.checkbox("Nutze Glättung", value=True)
+    if USE_SMOOTH:
+        SIGMA = st.sidebar.slider("Glättung/Sigma", 0, 10, getattr(constants, "SIGMA", 3))
+        constants.SIGMA = SIGMA
+    
+    
     constants.FANCY_PCA_STANDARD_DEVIATION = STANDARD_DEVIATION
     constants.FANCY_PCA_MEAN = MEAN
     constants.USE_SMOOTH = USE_SMOOTH
