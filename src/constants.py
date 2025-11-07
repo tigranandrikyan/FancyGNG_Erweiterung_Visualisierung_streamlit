@@ -32,8 +32,27 @@ FANCY_PCA_STANDARD_DEVIATION = 5 ### Debugging: setze auf 5 für starke Änderun
 #Stärke der Glättung
 SIGMA = 3
 
+
 #Color-jitter
 BRIGHTNESS = 0.4
 CONTRAST = 0.4
 SATURATION = 0.4
 HUE = 0.1
+
+
+def get_color(group):
+    color_mapping = {
+        0: (255, 0, 0),       # Rot
+        1: (0, 255, 0),       # Grün
+        2: (0, 0, 255),       # Blau
+        3: (255, 255, 0),     # Gelb
+        4: (255, 0, 255),     # Magenta
+        5: (0, 255, 255),     # Cyan
+        6: (128, 0, 0),       # Dunkelrot
+        7: (0, 128, 0),       # Dunkelgrün
+        8: (0, 0, 128),       # Dunkelblau
+        9: (128, 128, 0),     # Dunkelgelb
+        10: (128, 0, 128),    # Dunkelmagenta
+    }
+    return color_mapping[group]
+    
