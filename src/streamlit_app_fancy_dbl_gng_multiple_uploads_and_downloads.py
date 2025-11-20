@@ -21,7 +21,8 @@ FANCYPCA_STR = "FancyPCA"
 COLORJITTER_STR = "Color-Jitter"
 MAX_UI_AUG_COUNT = 10
 MAX_UI_AUG_COUNT += 1
-CLOUD_SIZE = 20000
+CLOUD_SIZE = 5000
+REDUCED_TRAINING = 5000
 
 
 #-----------------------------Session------------------------------------------------------------
@@ -101,21 +102,29 @@ elif input_option == "Kamera":
         st.session_state.last_picture = camera_image.getvalue()      
         
        
-option_buttons = []     
+option_buttons_ui = []     
 #Punktwolke anzeigen
 show_point_cloud = st.checkbox("Zeige die Punktwolke")
 
 #gray scale anzeigen
 show_gray_scale = st.checkbox("Generiere zusätzlich eine Gray-Scale Version")
 
+
 show_cluster = False
+reduced_fancy_gng = False
 #cluster
 if aug_option == FANCYGNG_STR:
-    show_cluster = st.checkbox("Genereiere eine Pixel Clustermap")
-    option_buttons.append(show_cluster)
+    show_cluster = st.checkbox("Generiere eine Pixel Clustermap")
+    option_buttons_ui.append(show_cluster)
+    
+    #Reduziertes Fancy-GNG
+    reduced_fancy_gng = st.checkbox("Trainiere Fancy-GNG auf weniger Datenpunkten")
+    
 
-option_buttons.append(show_point_cloud)
-option_buttons.append(show_gray_scale)
+
+option_buttons_ui.append(show_point_cloud)
+option_buttons_ui.append(show_gray_scale)
+
 
 #Augmentation starten
 start_augmentation = st.button("🚀 Starte Augmentierung")
@@ -172,8 +181,13 @@ elif aug_option == FANCYPCA_STR:
 
 if show_point_cloud:
     st.sidebar.subheader("☁️ Größe der Punktwolke")
-    CLOUD_SIZE = st.sidebar.number_input("Anzahl der Punkte", 1000, 1000000, CLOUD_SIZE)
+    CLOUD_SIZE = st.sidebar.number_input("Anzahl der Punkte", 100, 1000000, CLOUD_SIZE)
     use_original_size = st.sidebar.checkbox("Use Image original size")
+    
+if reduced_fancy_gng and aug_option == FANCYGNG_STR:
+    st.sidebar.subheader("🟦 Anzahl der Pixel, die verwendet werden für das Fancy-GNG training")
+    REDUCED_TRAINING = st.sidebar.number_input("Anzahl der Datenpunkte", 100, 1000000, REDUCED_TRAINING)
+    
 
 constants.AUG_COUNT = AUG_COUNT
 
@@ -220,13 +234,14 @@ def show_fancy_pca_info(filename, info):
 
 #-------------------------------------FancyGNG---------------------------------------------
 def fancy_gng(image_data, original_image):
-    aug_images, cluster_count, pixel_cluster_map = generate_fancy_gng_augmentations(image_data)
+    aug_images, cluster_count, pixel_cluster_map, node_cluster_map = generate_fancy_gng_augmentations(image_data)
     st.session_state.image_results[filename] = {
                     "original": original_image,
                     "aug_images": aug_images,
                     "cluster_count": cluster_count,
                     "data_shape": image_data.shape,
-                    "pixel_cluster_map": pixel_cluster_map
+                    "pixel_cluster_map": pixel_cluster_map,
+                    "nodes": node_cluster_map.size
     }
 
 
@@ -236,11 +251,18 @@ def show_fancy_gng_info(filename, info):
     st.write(f"**Bildgröße:** {info['original'].size}")
     st.write(f"**Bildarray-Form:** {info['data_shape']}")
     st.write(f"**Anzahl der Cluster:** {info['cluster_count']}")
+    st.write(f"**Anzahl der von GNG generierten Zentren:** {info['nodes']}")
 
 
 def generate_fancy_gng_augmentations(image_data):
     """Führt den gesamten DBL-GNG + Clustering + Augmentierungsprozess durch."""
     gng = dbl_gng.DBL_GNG(3, constants.MAX_NODES)
+    image_data_org = image_data.copy()
+    #print("Reduce:", len(image_data), image_data.shape)
+    if reduced_fancy_gng and REDUCED_TRAINING < len(image_data):
+        indices = np.random.choice(len(image_data), REDUCED_TRAINING, replace=False)
+        image_data = image_data[indices]
+        
     gng.initializeDistributedNode(image_data, constants.SARTING_NODES)
     bar = trange(constants.EPOCH)
     for i in bar:
@@ -251,19 +273,24 @@ def generate_fancy_gng_augmentations(image_data):
         bar.set_description(f"Epoch {i + 1} Knotenanzahl: {len(gng.W)}")  # Fortschrittsanzeige
 
     gng.cutEdge()
-    gng.finalNodeDatumMap(image_data)
+    gng.finalNodeDatumMap(image_data_org)
 
     finalDistMap = gng.finalDistMap
+    
+    print("Entfernung:", finalDistMap)
     finalNodes = (gng.W * constants.MAX_COLOR_VALUE).astype(int)
     connectiveMatrix = gng.C
 
     pixel_cluster_map, node_cluster_map = clustering.cluster(finalDistMap, finalNodes, connectiveMatrix)
     pixel_cluster_map = np.array(pixel_cluster_map)
+    print(node_cluster_map.size)
     cluster_count = int(max(node_cluster_map)) + 1
+
 
     aug_images = []
     for _ in range(constants.AUG_COUNT):
-        aug_data = color_pca.modify_clusters(data_array, pixel_cluster_map, cluster_count, [image.size], 0)
+        print("Debug:", image.size)
+        aug_data = color_pca.modify_clusters(image_data_org, pixel_cluster_map, cluster_count, [image.size], 0)
         aug_data = (aug_data * 255).astype(np.uint8)  # Umwandlung in uint8
 
         # Rückwandlung in die ursprüngliche Bildform: Höhe x Breite x 3
@@ -272,7 +299,7 @@ def generate_fancy_gng_augmentations(image_data):
         # Erstellen des augmentierten Bildes
         aug_image = Image.fromarray(aug_data)
         aug_images.append(aug_image)
-    return aug_images, cluster_count, pixel_cluster_map
+    return aug_images, cluster_count, pixel_cluster_map, node_cluster_map
 
 
 
@@ -386,6 +413,7 @@ def create_cluster_image(all_images, axs, row_idx = 0):
 
 def create_main_plot(all_images, axs, row_idx = 0):
     images = all_images if len(all_images) < MAX_UI_AUG_COUNT else all_images[:MAX_UI_AUG_COUNT]
+
     for idx, img in enumerate(images):
         ax = get_fig_ax(axs, row_idx, idx)
         if len(ax.images) == 0 and len(ax.collections) == 0:  
@@ -473,7 +501,7 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
         #Grafik
         with st.spinner(f"Augementation von {filename} abgeschlossen...Starte Visualisierung"):
             if filename not in st.session_state.fig_png:
-                ax_counter = sum(1 for opt in option_buttons if opt) + 1
+                ax_counter = sum(1 for opt in option_buttons_ui if opt) + 1
                 cols = constants.AUG_COUNT + 1 if constants.AUG_COUNT < MAX_UI_AUG_COUNT else MAX_UI_AUG_COUNT
                 fig, axs = plt.subplots(ax_counter, cols, figsize=(15, 6))
 
@@ -481,15 +509,18 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
                 current_row = 0
                 # Punktwolke & Augmentierungen generieren
                 if show_point_cloud:
+                    print("gen point cloud")
                     create_point_cloud([info["original"]] + info["aug_images"], axs, current_row)
                     current_row += 1
 
                 #Gray scal ebild generieren
                 if show_gray_scale:
+                    print("gen gray scale")
                     create_gray_images([info["original"]] + info["aug_images"], axs, current_row)
                     current_row += 1
 
                 if show_cluster:
+                    print("gen cluster")
                     create_cluster_image([info["original"]] + info["aug_images"], axs, current_row)
                     current_row += 1
                 #main fig
