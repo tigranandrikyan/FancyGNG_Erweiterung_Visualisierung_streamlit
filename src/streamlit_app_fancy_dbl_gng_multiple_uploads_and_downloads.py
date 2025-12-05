@@ -529,18 +529,19 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
     
         # Info Anzeige
         info = st.session_state.image_results[filename]
-       
-        if filename not in st.session_state.fig_png:
-            if aug_option == FANCYGNG_STR:
-                st.session_state.last_aug_info = show_fancy_gng_info
-           
-            elif aug_option == FANCYPCA_STR:
-                st.session_state.last_aug_info = show_fancy_pca_info
 
-            elif aug_option == COLORJITTER_STR:
-                st.session_state.last_aug_info = show_color_jitter_info
+        if figures:
+            if filename not in st.session_state.fig_png:
+                if aug_option == FANCYGNG_STR:
+                    st.session_state.last_aug_info = show_fancy_gng_info
+           
+                elif aug_option == FANCYPCA_STR:
+                    st.session_state.last_aug_info = show_fancy_pca_info
+
+                elif aug_option == COLORJITTER_STR:
+                    st.session_state.last_aug_info = show_color_jitter_info
         
-        st.session_state.last_aug_info(filename, info)
+            st.session_state.last_aug_info(filename, info)
         
 
         #Grafik
@@ -571,10 +572,11 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
                     png_buf = fig_to_png(fig)
                     fig.tight_layout()
                     st.session_state.fig_png[filename] = png_buf.getvalue()
-                    st.image(st.session_state.fig_png[filename])
+                    
             
             #Grafik anzeigen
-        
+        if figures:
+            st.image(st.session_state.fig_png[filename])
     st.session_state.done = True
         
 
