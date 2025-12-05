@@ -17,7 +17,7 @@ class FancyPCA:
         #print('test', eig_values / np.sum(eig_values)) ### Debugging ###
         # Zufällige Skalierung der Eigenwerte mit einer Normalverteilung basierend auf Mittelwert und Standardabweichung
         alpha = constants.FANCY_PCA_STANDARD_DEVIATION * np.random.randn(3) + constants.FANCY_PCA_MEAN
-        print(alpha)
+        #print(alpha)
         #alpha = np.random.normal(self.mean, self.standard_deviation) # Pauls alpha (ist nur eine Konstante, aber wir brauchen alpha_i, i=1,2,3)
         #print(alpha) ### Debugging ###
         eig_values *= alpha
