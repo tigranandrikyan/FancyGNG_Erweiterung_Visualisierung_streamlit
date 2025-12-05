@@ -59,7 +59,7 @@ def reset_for_new_run():
 
 
 #--------------------------Streamlit UI-------------------------------
-st.title("🧠 DBL-GNG Image augmentation")
+st.title("🧠 Fancy-GNG image augmentation")
 st.write("Upload one or more images or take one with your camera.")
 
 
@@ -180,9 +180,11 @@ if aug_option == COLORJITTER_STR:
 
 elif aug_option == FANCYGNG_STR:
     st.sidebar.subheader("🧮 Fancy-GNG parameter")
-    STANDARD_DEVIATION = st.sidebar.slider("Standard deviation", 1, 10, getattr(constants, "FANCY_PCA_STANDARD_DEVIATION", 20),
+    STANDARD_DEVIATION = st.sidebar.slider("Standard deviation", 1.0, 10.0,  float(getattr(constants, "FANCY_PCA_STANDARD_DEVIATION", 2.0)),
+                    step=0.25,
                     help="Determines the strength of the color shift along the PCA components. Higher values produce stronger color variations.")
-    MEAN = st.sidebar.slider("Mean", 0, 10, getattr(constants, "FANCY_PCA_MEAN", 3),
+    MEAN = st.sidebar.slider("Mean", 0.0, 10.0,  float(getattr(constants, "FANCY_PCA_MEAN", 3.0)),
+                    step=0.25,
                     help="Sets the average shift along the color PCA. Affects how much colors are changed on average.")  
     #USE_SMOOTH = st.sidebar.checkbox("Use smoothing", value=False)
     #if USE_SMOOTH:
@@ -198,9 +200,11 @@ elif aug_option == FANCYGNG_STR:
 
 elif aug_option == FANCYPCA_STR:
     st.sidebar.subheader("🧮 Fancy-PCA parameter")
-    STANDARD_DEVIATION = st.sidebar.slider("Standard deviation", 0, 10, getattr(constants, "FANCY_PCA_STANDARD_DEVIATION", 20),
+    STANDARD_DEVIATION = st.sidebar.slider("Standard deviation", 0.0, 10.0,  float(getattr(constants, "FANCY_PCA_STANDARD_DEVIATION", 2.0)),
+                        step=0.25,
                         help="Determines the strength of the color shift along the PCA components. Higher values produce stronger color variations.")
-    MEAN = st.sidebar.slider("Mean", 0, 10, getattr(constants, "FANCY_PCA_MEAN", 3),
+    MEAN = st.sidebar.slider("Mean", 0.0, 10.0,  float(getattr(constants, "FANCY_PCA_MEAN", 3.0)),
+                        step=0.25,
                         help="Sets the average shift along the color PCA. Affects how much colors are changed on average.")  
     constants.FANCY_PCA_STANDARD_DEVIATION = STANDARD_DEVIATION
     constants.FANCY_PCA_MEAN = MEAN
