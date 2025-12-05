@@ -117,6 +117,7 @@ show_gray_scale = st.checkbox("Additionally generate a grayscale version",
                     help="Dies ist ein Tooltip, der beim Hover angezeigt wird.")
 
 
+
 show_cluster = False
 reduced_fancy_gng = False
 #cluster
@@ -304,6 +305,7 @@ def generate_fancy_gng_augmentations(image_data):
 
     pixel_cluster_map, node_cluster_map = clustering.cluster(finalDistMap, finalNodes, connectiveMatrix)
     pixel_cluster_map = np.array(pixel_cluster_map)
+    print(node_cluster_map.size)
     cluster_count = int(max(node_cluster_map)) + 1
 
 
