@@ -10,7 +10,6 @@ venv
 *.bat
 *.zip
 *.png
-*.jpg
 *.jpeg
 *.gif
 __pycache__/
