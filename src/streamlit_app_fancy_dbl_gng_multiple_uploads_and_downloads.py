@@ -389,7 +389,7 @@ def create_point_cloud(all_images, axs, row_idx = 0):
     for idx, img in enumerate(images):
         ax = get_fig_ax(axs, row_idx, idx)
 
-        ax.tick_params(width=3, labelsize=20)
+        ax.tick_params(width=3, labelsize=30)
         
         if len(ax.images) == 0 and len(ax.collections) == 0:  # nur wenn Achse leer
             rgb_image = img.convert("RGB")
