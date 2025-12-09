@@ -388,6 +388,9 @@ def create_point_cloud(all_images, axs, row_idx = 0):
     images = all_images if len(all_images) < MAX_UI_AUG_COUNT else all_images[:MAX_UI_AUG_COUNT]
     for idx, img in enumerate(images):
         ax = get_fig_ax(axs, row_idx, idx)
+
+        ax.tick_params(width=3, labelsize=20)
+        
         if len(ax.images) == 0 and len(ax.collections) == 0:  # nur wenn Achse leer
             rgb_image = img.convert("RGB")
             width, height = img.size
@@ -407,7 +410,7 @@ def create_point_cloud(all_images, axs, row_idx = 0):
 
             # Punkte definieren (r,g,b -> als Farbe)
             #points = np.column_stack((pixels, pixels))  # (r,g,b,r,g,b)
-            ax.scatter(points[:, 1], points[:, 2], c=points[:, 3:6] / 255, s=1)
+            ax.scatter(points[:, 1], points[:, 2], c=points[:, 3:6] / 255, s=3)
             ax.set_xlim(0, 255)
             ax.set_ylim(0, 255)
             ax.set_aspect('equal', 'box')
@@ -464,7 +467,7 @@ def create_main_plot(all_images, axs, row_idx = 0):
         if len(ax.images) == 0 and len(ax.collections) == 0:  
             ax.imshow(img)
             ax.axis("off")
-            ax.set_title("Original" if idx == 0 else f"Aug {idx}")
+            ax.set_title("Original" if idx == 0 else f"Aug {idx}", fontsize=45)
 
 
 def fig_to_png(fig):
@@ -549,29 +552,32 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
             if filename not in st.session_state.fig_png:
                 ax_counter = sum(1 for opt in option_buttons_ui if opt) + 1
                 cols = constants.AUG_COUNT + 1 if constants.AUG_COUNT < MAX_UI_AUG_COUNT else MAX_UI_AUG_COUNT
-                fig, axs = plt.subplots(ax_counter, cols, figsize=(15, 6))
+                fig, axs = plt.subplots(ax_counter, cols, figsize=(40, 22), constrained_layout=False)
 
 
                 current_row = 0
+                 #main fig
+                if figures:
+                    create_main_plot([info["original"]] + info["aug_images"], axs, current_row)
+                    current_row += 1
+                    
+                if show_cluster and figures:
+                    create_cluster_image([info["original"]] + info["aug_images"], axs, current_row)
+                    current_row += 1
                 # Punktwolke & Augmentierungen generieren
                 if show_point_cloud and figures:
                     create_point_cloud([info["original"]] + info["aug_images"], axs, current_row)
                     current_row += 1
-
                 #Gray scal ebild generieren
                 if show_gray_scale:
                     create_gray_images([info["original"]] + info["aug_images"], axs, current_row)
-                    current_row += 1
 
-                if show_cluster and figures:
-                    create_cluster_image([info["original"]] + info["aug_images"], axs, current_row)
-                    current_row += 1
-                #main fig
                 if figures:
-                    create_main_plot([info["original"]] + info["aug_images"], axs, current_row)
+                    #fig.tight_layout()
+                    fig.subplots_adjust(hspace=0.3, wspace=0.2)
                     png_buf = fig_to_png(fig)
-                    fig.tight_layout()
                     st.session_state.fig_png[filename] = png_buf.getvalue()
+               
                     
             
             #Grafik anzeigen
