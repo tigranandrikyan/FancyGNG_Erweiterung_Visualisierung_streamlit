@@ -328,7 +328,6 @@ def generate_fancy_gng_augmentations(image_data):
 
     pixel_cluster_map, node_cluster_map = clustering.cluster(finalDistMap, finalNodes, connectiveMatrix)
     pixel_cluster_map = np.array(pixel_cluster_map)
-    print(node_cluster_map.size)
     cluster_count = int(max(node_cluster_map)) + 1
 
 
@@ -402,7 +401,7 @@ def create_point_cloud(all_images, axs, row_idx = 0):
                  for (r, g, b) in [rgb_image.getpixel((x, y))]
              ])
 
-             # 🔹 Zufällig 20 000 Punkte auswählen (oder alle, falls weniger)
+             #Zufällig 20 000 Punkte auswählen (oder alle, falls weniger)
             if len(points) > CLOUD_SIZE and not use_original_size:
                 #print("Capped point cloud")
                 indices = np.random.choice(len(points), CLOUD_SIZE, replace=False)
