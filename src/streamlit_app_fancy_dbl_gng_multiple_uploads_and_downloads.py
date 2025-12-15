@@ -408,10 +408,11 @@ def create_point_cloud(all_images, axs, row_idx = 0):
                 points = points[indices]
 
             # Punkte definieren (r,g,b -> als Farbe)
-            #points = np.column_stack((pixels, pixels))  # (r,g,b,r,g,b)
             ax.scatter(points[:, 1], points[:, 2], c=points[:, 3:6] / 255, s=3)
             ax.set_xlim(0, 255)
             ax.set_ylim(0, 255)
+            ax.set_xticks(range(0, 256, 100))  
+            ax.set_yticks(range(0, 256, 100)) 
             ax.set_aspect('equal', 'box')
             #ax.set_title("Original" if idx == 0 else f"Aug {idx}")
         
@@ -554,10 +555,13 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
                 image = Image.open(uploaded_file).convert("RGB")
                 rows = sum(1 for opt in option_buttons_ui if opt and opt) + 1
                 cols = constants.AUG_COUNT + 1 if constants.AUG_COUNT < MAX_UI_AUG_COUNT else MAX_UI_AUG_COUNT
-                fig = plt.figure(figsize=(image.width/100 * cols, image.height/100 * rows), dpi=100)
+                fig = plt.figure(figsize=(image.width/100 * (cols + 1), image.height/100 * rows), dpi=100)
                 axs = np.empty((rows, cols), dtype=object)
                 if show_cluster and figures:
-                    gs = fig.add_gridspec(rows, cols + 1, width_ratios=[1]*cols + [1.5])
+                    if rows == 1:
+                        gs = fig.add_gridspec(rows, cols + 1, width_ratios=[1]*cols + [1])
+                    else:
+                        gs = fig.add_gridspec(rows, cols + 1, width_ratios=[1]*cols + [1.5])
                     cluster_ax = fig.add_subplot(gs[:, -1])
                 else:
                     gs = fig.add_gridspec(rows, cols)
@@ -584,7 +588,8 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
                     create_cluster_image([info["original"]] + info["aug_images"], cluster_ax)
                     
                 if figures:   
-                    fig.tight_layout(pad=0.1)
+                    fig.subplots_adjust(wspace=0.3, hspace=0.05)   
+                    #fig.tight_layout(pad=0.1)
                     png_buf = fig_to_png(fig)
                     st.session_state.fig_png[filename] = png_buf.getvalue()
                
