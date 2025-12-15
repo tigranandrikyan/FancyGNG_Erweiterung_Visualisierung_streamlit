@@ -135,7 +135,7 @@ if aug_option == FANCYGNG_STR:
         show_cluster = st.checkbox("Generate a pixel cluster map",
                         help="A unique color is selected for each color cluster (connected codebook vectors) found by GNG. " \
                         "All pixels belonging to this cluster are colored in this color. This visualizes the color clusters found in the image.")
-        option_buttons_ui.append(show_cluster)
+        #option_buttons_ui.append(show_cluster)
     
 #Punktwolke anzeigen
 show_point_cloud = False
@@ -436,27 +436,29 @@ def create_gray_images(all_images, axs, row_idx = 0):
             gray = grayscale_transform(img)
             st.session_state.gray_images[filename]["images"].append(gray)
 
-def create_cluster_image(all_images, axs, row_idx = 0):
-    images = all_images if len(all_images) <= MAX_UI_AUG_COUNT else all_images[:MAX_UI_AUG_COUNT]
-    for idx, img in enumerate(images):
-        draw = None
-        ax = get_fig_ax(axs, row_idx, idx)
-        if len(ax.images) == 0 and len(ax.collections) == 0:
-            width, height = img.size  # Eine Zeile mit der Länge der Daten
-            image = Image.new("RGB", (width, height))
-            draw = ImageDraw.Draw(image)
-            tmp_width, tmp_height = 0, 0
-            cluster = info['pixel_cluster_map']
-            for group in cluster:
-                color = constants.get_color(int(group))
-                draw.point((tmp_width, tmp_height), fill=color)
-                if(tmp_width == width):
-                    tmp_height += 1
-                    tmp_width = 0
-                tmp_width += 1 
-            ax.imshow(image)
-            ax.axis("off")
-    
+def create_cluster_image(all_images, cluster_ax):
+    img = all_images[0]
+
+    if len(cluster_ax.images) == 0 and len(cluster_ax.collections) == 0:
+        width, height = img.size
+        image = Image.new("RGB", (width, height))
+        draw = ImageDraw.Draw(image)
+
+        tmp_width, tmp_height = 0, 0
+        cluster = info['pixel_cluster_map']
+
+        for group in cluster:
+            color = constants.get_color(int(group))
+            draw.point((tmp_width, tmp_height), fill=color)
+
+            tmp_width += 1
+            if tmp_width >= width:
+                tmp_width = 0
+                tmp_height += 1
+
+        cluster_ax.imshow(image)
+        cluster_ax.axis("off")
+
 
 def create_main_plot(all_images, axs, row_idx = 0):
     images = all_images if len(all_images) < MAX_UI_AUG_COUNT else all_images[:MAX_UI_AUG_COUNT]
@@ -549,10 +551,20 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
         #Grafik
         with st.spinner(f"Augmentation of {filename} completed ... Start visualization"):
             if filename not in st.session_state.fig_png:
-                ax_counter = sum(1 for opt in option_buttons_ui if opt) + 1
+                image = Image.open(uploaded_file).convert("RGB")
+                rows = sum(1 for opt in option_buttons_ui if opt and opt) + 1
                 cols = constants.AUG_COUNT + 1 if constants.AUG_COUNT < MAX_UI_AUG_COUNT else MAX_UI_AUG_COUNT
-                fig, axs = plt.subplots(ax_counter, cols, figsize=(40, 22), constrained_layout=False)
-
+                fig = plt.figure(figsize=(image.width/100 * cols, image.height/100 * rows), dpi=100)
+                axs = np.empty((rows, cols), dtype=object)
+                if show_cluster and figures:
+                    gs = fig.add_gridspec(rows, cols + 1, width_ratios=[1]*cols + [1.5])
+                    cluster_ax = fig.add_subplot(gs[:, -1])
+                else:
+                    gs = fig.add_gridspec(rows, cols)
+                for r in range(rows):
+                    for c in range(cols):               
+                        axs[r, c] = fig.add_subplot(gs[r, c])
+               
 
                 current_row = 0
                  #main fig
@@ -560,9 +572,6 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
                     create_main_plot([info["original"]] + info["aug_images"], axs, current_row)
                     current_row += 1
                     
-                if show_cluster and figures:
-                    create_cluster_image([info["original"]] + info["aug_images"], axs, current_row)
-                    current_row += 1
                 # Punktwolke & Augmentierungen generieren
                 if show_point_cloud and figures:
                     create_point_cloud([info["original"]] + info["aug_images"], axs, current_row)
@@ -570,10 +579,12 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
                 #Gray scal ebild generieren
                 if show_gray_scale:
                     create_gray_images([info["original"]] + info["aug_images"], axs, current_row)
-
-                if figures:
-                    #fig.tight_layout()
-                    fig.subplots_adjust(hspace=0.3, wspace=0.2)
+                
+                if show_cluster and figures:
+                    create_cluster_image([info["original"]] + info["aug_images"], cluster_ax)
+                    
+                if figures:   
+                    fig.tight_layout(pad=0.1)
                     png_buf = fig_to_png(fig)
                     st.session_state.fig_png[filename] = png_buf.getvalue()
                
