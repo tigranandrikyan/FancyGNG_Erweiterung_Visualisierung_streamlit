@@ -2,25 +2,30 @@ import constants
 import parser
 import fancy_pca as FP
 
+# Start Fancy PCA
 
-#Starten von fancy pca
+file_list = parser.generate_file_list()  # Generate a list of files to process
+data, size_images = parser.parse(file_list)  # Parse the files and extract image data and their sizes
+data_names = parser.get_image_names(file_list)  # Retrieve the names of the images from the file list
 
-file_list = parser.generate_file_list() # Erzeugt eine Liste der Dateien, die verarbeitet werden sollen
-data, size_images = parser.parse(file_list) # Parst die Dateien und extrahiert die Bilddaten sowie deren Größen
-data_names = parser.get_image_names(file_list) # Ruft die Namen der Bilder aus der Dateiliste ab
 
-### Debugging: Ausgabe der Bildnamen: ###
-#print(data_names)
 
-fancy_pca_transform = FP.FancyPCA() # Erstellt eine Instanz der FancyPCA-Transformation (Objekt der Klasse FancyPCA())
+fancy_pca_transform = FP.FancyPCA()  # Create an instance of the FancyPCA transformation
 
-# Iteriert über alle Dateien in der Liste
+# Iterate over all files in the list
 for data_index in range(len(file_list)):
 
-    # Wiederholt die Augmentierung für die festgelegte Anzahl an Augmentierungen durch 'AUG_COUNT' aus constants.py -> TODO: ggf. meinen Code zur Augmentierung (auch) hier einfügen/anpassen
-    for aug_count in range (constants.AUG_COUNT):
-        print(f"Fancy_PCA: {str(data_names[data_index])}, {aug_count + 1}/{constants.AUG_COUNT}") ### Debugging: Gibt eine Statusmeldung mit Bildname und Augmentierungsfortschritt aus ###
-        fancy_pca_images = fancy_pca_transform.fancy_pca(data[data_index]) # Wendet die FancyPCA-Transformation auf das aktuelle Bild an
+    # Repeat the augmentation for the number of times specified by 'AUG_COUNT' in constants.py
+    for aug_count in range(constants.AUG_COUNT):
+        print(f"Fancy_PCA: {str(data_names[data_index])}, {aug_count + 1}/{constants.AUG_COUNT}")  # Debug: print image name and augmentation progress
+        fancy_pca_images = fancy_pca_transform.fancy_pca(data[data_index])  # Apply the FancyPCA transformation to the current image
 
-        # Speichert das transformierte Bild mit den gegebenen Parametern im Ausgabeordner
-        parser.save_data(fancy_pca_images, data_names[data_index], size_images, aug_count, data_index, path = './out_fancy_pca')
+        # Save the transformed image with the given parameters in the output folder
+        parser.save_data(
+            fancy_pca_images,
+            data_names[data_index],
+            size_images,
+            aug_count,
+            data_index,
+            path='./out_fancy_pca'
+        )

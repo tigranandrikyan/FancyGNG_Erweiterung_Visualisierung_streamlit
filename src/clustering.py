@@ -1,73 +1,71 @@
 import numpy as np
-from collections import defaultdict # Importiert defaultdict aus collections für die Speicherung von Adjazenzlisten
+from collections import defaultdict # Imports defaultdict from collections to store adjacency lists
 
-#Hier wird den Pixeln die Gruppe zugeordnet
+# Assigns each pixel to a cluster
 
 
-# Diese Funktion erstellt Cluster-Gruppen basierend auf den gegebenen Kanten
-def _createrClusterGroups(edges): # '_' bedeutet, dass die Funktion nur innerhalb des Moduls verwendet wird
-    graph = defaultdict(list) # Erstellt ein Wörterbuch, in dem jeder Knoten eine Liste von Nachbarn hat -> Beispiel: {1: [2], 2: [1]}
+# This function creates cluster groups based on the given edges
+def _createrClusterGroups(edges): 
+    graph = defaultdict(list) # Creates a dictionary where each node has a list of neighbors -> example: {1: [2], 2: [1]}
 
-    # Erstellt eine ungerichtete Adjazenzliste aus den gegebenen Kanten
-    for edge in edges: # Beispiel: edge = (1, 2)
+    # Creates an undirected adjacency list from the given edges
+    for edge in edges: # example: edge = (1, 2)
         graph[edge[0]].append(edge[1])
         graph[edge[1]].append(edge[0]) 
 
     
-    # Tiefensuche (Depth-First Search, dfs), um alle verbundenen Knoten einer Komponente zu finden
+    # Depth-First Search (DFS) to find all connected nodes in a component
     def dfs(node, visited):
-        component = [] # Liste zur Speicherung der aktuellen zusammenhängenden Komponente
-        stack = [node] # Stack für die Tiefensuche: Füge den aktuellen Knoten hinzu
-        visited.add(node) # Markiert den aktuellen Knoten als besucht
+        component = [] # List to store the current connected component
+        stack = [node] # Stack for DFS: add the current node
+        visited.add(node) # Mark the current node as visited
 
-        while stack: # Solange noch Knoten im Stack sind (True), führe die Tiefensuche fort
-            current = stack.pop() # Nimmt den obersten Knoten aus dem Stack, entferne aus der Liste und gib es zurück
-            component.append(current) # Fügt den Knoten zur aktuellen Komponente hinzu
+        while stack: # While there are still nodes in the stack, continue DFS
+            current = stack.pop() # Pop the top node from the stack
+            component.append(current) # Add the node to the current component
 
-            for neighbor in graph[current]: # Durchläuft alle Nachbarn des aktuellen Knotens
-                if neighbor not in visited: # Falls der Nachbar noch nicht besucht wurde
-                    visited.add(neighbor) # Markiert den Nachbarn als besucht
-                    stack.append(neighbor) # Fügt den Nachbarn dem Stack hinzu
+            for neighbor in graph[current]: # Iterate over all neighbors of the current node
+                if neighbor not in visited: # If neighbor hasn't been visited yet
+                    visited.add(neighbor) # Mark the neighbor as visited
+                    stack.append(neighbor) # Add the neighbor to the stack
                     
-        return component # Gibt die Liste der zusammenhängenden Knoten zurück -> Graphentheorie: zusammenhängender Graph -> alle Knoten paarweise durch eine Kantenfolge verbunden
+        return component # Return the list of connected nodes -> graph theory: connected component = all nodes connected by some path
 
-    # Findet alle Gruppen zusammenhängender Knoten im Graphen
+    # Finds all connected node groups in the graph
     def find_all_connected_groups():
-        visited = set() # set() zur Speicherung der bereits besuchten Knoten
-        all_groups = [] # Liste zur Speicherung aller gefundenen Cluster
+        visited = set() # set() to store already visited nodes
+        all_groups = [] # List to store all found clusters
 
-        # Durchläuft alle Knoten im Graphen
+        # Iterate over all nodes in the graph
         for node in graph:
-            if node not in visited: # Falls der Knoten noch nicht besucht wurde
-                component = dfs(node, visited) # Finde alle verbundenen Knoten der aktuellen Komponente 'node'
-                all_groups.append(np.array(component)) # Speichert die Komponente als NumPy-Array in der Liste
+            if node not in visited: # If node hasn't been visited
+                component = dfs(node, visited) # Find all connected nodes in the current component
+                all_groups.append(np.array(component)) # Store the component as a NumPy array in the list
 
-        return all_groups # Gibt die Liste aller Gruppen zurück
+        return all_groups # Return the list of all groups
 
-    # Gibt die gefundenen Cluster zurück: find_all_connected_groups() gibt all_groups zurück und _createClusterGroups() gibt find_all_connected_groups() zurück -> Rückgabe: all_groups
+    # Return the found clusters: find_all_connected_groups() returns all_groups, _createrClusterGroups() returns that function -> effectively returns all_groups
     return find_all_connected_groups() 
 
-# Erstellt eine Zuordnung von Knoten zu Cluster-IDs
+# Creates a mapping from nodes to cluster IDs
 def _createClusterNodeMap(connected_nodes, finalNodes):
-    node_cluste_map = np.zeros(len(finalNodes)) # Erstellt ein Array mit Nullen der Länge finalNodes -> Speichert die Cluster-IDs der Knoten
+    node_cluste_map = np.zeros(len(finalNodes)) # Create an array of zeros of length finalNodes -> stores the cluster IDs of nodes
 
-    # Iteriert über die gefundenen Cluster und weist jedem Knoten eine Cluster-ID zu
+    # Iterate over found clusters and assign a cluster ID to each node
     for cluster_index, cluster in enumerate(connected_nodes):
           for node in cluster:
-              node_cluste_map[node] = cluster_index # Speichert die Cluster-Nummer für den jeweiligen Knoten
-    return node_cluste_map # Gibt die Cluster-Zuordnung zurück           
+              node_cluste_map[node] = cluster_index # Store the cluster number for the respective node
+    return node_cluste_map # Return the node-to-cluster mapping           
       
 
-### Hauptfunktion zur Cluster-Bildung basierend auf der Datenstruktur ###
+# Main function for cluster assignment based on the data structure ###
 def cluster(datum_node_map, finalNodes, edges):
-    connected_nodes = _createrClusterGroups(edges) # Findet zusammenhängende Gruppen von Knoten
-    #print(connected_nodes) -> Debugging
-    node_cluster_map = _createClusterNodeMap(connected_nodes, finalNodes) # Erstellt eine Cluster-Zuordnung für die Knoten
-    #print(node_cluster_map) -> Debugging
-    pixel_cluster_map = list() # Liste zur Speicherung der Cluster-Zuordnung für die Pixel
+    connected_nodes = _createrClusterGroups(edges) # Find connected groups of nodes
+    node_cluster_map = _createClusterNodeMap(connected_nodes, finalNodes) # Create a cluster mapping for the nodes
+    pixel_cluster_map = list() # List to store the cluster assignment for pixels
 
-    # Weist jedem Datenpunkt aus datum_node_map ein Cluster zu
+    # Assign each data point from datum_node_map to a cluster
     for node_index in datum_node_map:
         pixel_cluster_map.append(node_cluster_map[node_index])
 
-    return pixel_cluster_map, node_cluster_map # Gibt die Pixel- und Knoten-Cluster-Zuordnung zurück
+    return pixel_cluster_map, node_cluster_map # Return pixel and node cluster assignments

@@ -1,3 +1,4 @@
+
 import streamlit as st
 import numpy as np
 import constants
@@ -27,7 +28,7 @@ REDUCED_TRAINING = 5000
 
 #-----------------------------Session------------------------------------------------------------
 def init_session():
-    # Session-States initialisieren
+    # session states 
     if "uploaded_files" not in st.session_state:
         st.session_state.uploaded_files = None
     if "image_results" not in st.session_state:
@@ -63,7 +64,7 @@ st.title("🧠 Fancy-GNG image augmentation")
 st.write("Upload one or more images or take one with your camera.")
 
 
-# Augementation wählen
+# Choose augmentation
 aug_option = st.selectbox(
     "Select the augmentation methode:",
     [FANCYGNG_STR, FANCYPCA_STR, COLORJITTER_STR],
@@ -73,7 +74,7 @@ aug_option = st.selectbox(
 st.write(f"Method chosen: {aug_option}")
 
 
-# Quelle wählen
+# Choose source
 input_option = st.radio("Select image source:", ["File upload", "Camera"],
                 help="Select the source of the images to be used for augmentation. " \
                 "When selecting the camera, only one image can be captured. When selecting file upload, multiple images can be selected.")
@@ -116,7 +117,7 @@ figures = st.checkbox("Generate visualization",
 
 
 
-#gray scale anzeigen
+#gray scale
 show_gray_scale = st.checkbox("Additionally generate a grayscale version",
                     help="Additionally a grayscale version of the augmented image is generated. These images can also be downloaded at the end.")
 
@@ -126,7 +127,7 @@ show_cluster = False
 reduced_fancy_gng = False
 #cluster
 if aug_option == FANCYGNG_STR:
-    #Reduziertes Fancy-GNG
+    #reduce fancy-GNG
     reduced_fancy_gng = st.checkbox("Train Fancy-GNG on fewer data points",
                     help="At random (without repetition), select n pixels from the image to be used to train the GNG. " \
                     "This can be used to accelerate Fancy-GNG.")
@@ -135,9 +136,9 @@ if aug_option == FANCYGNG_STR:
         show_cluster = st.checkbox("Generate a pixel cluster map",
                         help="A unique color is selected for each color cluster (connected codebook vectors) found by GNG. " \
                         "All pixels belonging to this cluster are colored in this color. This visualizes the color clusters found in the image.")
-        #option_buttons_ui.append(show_cluster)
+ 
     
-#Punktwolke anzeigen
+#Show point cloud
 show_point_cloud = False
 if figures:
     show_point_cloud = st.checkbox("Show the point cloud",
@@ -151,23 +152,23 @@ if figures:
 option_buttons_ui.append(show_gray_scale)
 
 
-#Augmentation starten
+#Start augmenation
 start_augmentation = st.button("🚀 Start augmentation")
 if start_augmentation and st.session_state.done:
     reset_for_new_run()
 
 
-#----------------------------Sidebar für Parameter---------------------------------
+#----------------------------Sidebar for parameter---------------------------------
 st.sidebar.header("⚙️ Parameter settings",
                     help="Change parameters of the selected augmentation method")
 
-# Allgemeine Parameter (für alle Methoden)
+# General parameter 
 st.sidebar.subheader("General")
 AUG_COUNT = 5
 AUG_COUNT = st.sidebar.number_input("Number of augmentations", min_value=1, max_value=100,  value=getattr(constants, "AUG_COUNT", 3),
                                     help="The number of augmentations generated per image")
 
-# Dynamische Sektionen je nach ausgewählter Methode
+# Special parameter 
 if aug_option == COLORJITTER_STR:
     st.sidebar.subheader("🧮 Color-Jitter parameter")
     BRIGHTNESS = st.sidebar.slider("Brightness", 0.0, 2.0, getattr(constants, "BRIGHTNESS", 0.5),
@@ -179,7 +180,7 @@ if aug_option == COLORJITTER_STR:
     HUE = st.sidebar.slider("Hue", 0.0, 0.5, getattr(constants, "HUE", 0.1),
                 help="Shifts the color tone of the image. Small values result in subtle color shifts.")
 
-    # Werte übernehmen
+    #Set values
     constants.BRIGHTNESS = BRIGHTNESS
     constants.CONTRAST = CONTRAST
     constants.SATURATION = SATURATION
@@ -205,7 +206,6 @@ elif aug_option == FANCYGNG_STR:
     constants.FANCY_PCA_MEAN = MEAN
     #constants.USE_SMOOTH = USE_SMOOTH
     
-
 
 elif aug_option == FANCYPCA_STR:
     st.sidebar.subheader("🧮 Fancy-PCA parameter")
@@ -237,7 +237,7 @@ if reduced_fancy_gng and aug_option == FANCYGNG_STR:
 
 constants.AUG_COUNT = AUG_COUNT
 
-#print(constants.FANCY_PCA_STANDARD_DEVIATION, constants.FANCY_PCA_MEAN, constants.USE_SMOOTH)
+
 #-----------------------------------FancyPCA------------------------------------------
 def fancy_pca(image_data, original_iamge):
     aug_images = generate_fancy_pca_augmentations(image_data)
@@ -253,18 +253,15 @@ def generate_fancy_pca_augmentations(image_data):
     fancy_pca_transform = FP.FancyPCA()
     aug_images = []
     for _ in range(constants.AUG_COUNT):
-         # Wendet Fancy PCA auf das Bild an (Kopie wird verwendet, um Original nicht zu überschreiben, so wie bei fancy_pca_runner.py)
         fancy_pca_image = fancy_pca_transform.fancy_pca(image_data.copy())
-        # Umwandlung auf den Bereich [0, 255] und zu uint8
         fancy_pca_image = (fancy_pca_image * 255).astype(np.uint8)
-        # Rückumwandlung in die ursprüngliche Bildform: Höhe x Breite x 3
         height, width, channels = image.size[1], image.size[0], 3
         fancy_pca_image = fancy_pca_image.reshape((height, width, channels))
         try:
             aug_image = Image.fromarray(fancy_pca_image)
             aug_images.append(aug_image)
         except Exception as e:
-            st.write(f"Error during image conversion: {e}")  ### Debugging ###
+            st.write(f"Error during image conversion: {e}")  
 
     return aug_images
 
@@ -304,7 +301,6 @@ def generate_fancy_gng_augmentations(image_data):
     """Führt den gesamten DBL-GNG + Clustering + Augmentierungsprozess durch."""
     gng = dbl_gng.DBL_GNG(3, constants.MAX_NODES)
     image_data_org = image_data.copy()
-    #print("Reduce:", len(image_data), image_data.shape)
     if reduced_fancy_gng and REDUCED_TRAINING < len(image_data):
         indices = np.random.choice(len(image_data), REDUCED_TRAINING, replace=False)
         image_data = image_data[indices]
@@ -316,7 +312,7 @@ def generate_fancy_gng_augmentations(image_data):
         gng.batchLearning(image_data)
         gng.updateNetwork()
         gng.addNewNode(gng)
-        bar.set_description(f"Epoch {i + 1} number of nodes: {len(gng.W)}")  # Fortschrittsanzeige
+        bar.set_description(f"Epoch {i + 1} number of nodes: {len(gng.W)}") 
 
     gng.cutEdge()
     gng.finalNodeDatumMap(image_data_org)
@@ -334,12 +330,8 @@ def generate_fancy_gng_augmentations(image_data):
     aug_images = []
     for _ in range(constants.AUG_COUNT):
         aug_data = color_pca.modify_clusters(image_data_org, pixel_cluster_map, cluster_count, [image.size], 0)
-        aug_data = (aug_data * 255).astype(np.uint8)  # Umwandlung in uint8
-
-        # Rückwandlung in die ursprüngliche Bildform: Höhe x Breite x 3
+        aug_data = (aug_data * 255).astype(np.uint8) 
         aug_data = aug_data.reshape((image.size[1], image.size[0], 3))
-
-        # Erstellen des augmentierten Bildes
         aug_image = Image.fromarray(aug_data)
         aug_images.append(aug_image)
     return aug_images, cluster_count, pixel_cluster_map, node_cluster_map
@@ -390,7 +382,7 @@ def create_point_cloud(all_images, axs, row_idx = 0):
 
         ax.tick_params(width=3, labelsize=30)
         
-        if len(ax.images) == 0 and len(ax.collections) == 0:  # nur wenn Achse leer
+        if len(ax.images) == 0 and len(ax.collections) == 0:  # only at empty axes
             rgb_image = img.convert("RGB")
             width, height = img.size
             
@@ -401,20 +393,20 @@ def create_point_cloud(all_images, axs, row_idx = 0):
                  for (r, g, b) in [rgb_image.getpixel((x, y))]
              ])
 
-             #Zufällig 20 000 Punkte auswählen (oder alle, falls weniger)
+            #Randomly select 20,000 points (or all of them, if fewer)
             if len(points) > CLOUD_SIZE and not use_original_size:
                 #print("Capped point cloud")
                 indices = np.random.choice(len(points), CLOUD_SIZE, replace=False)
                 points = points[indices]
 
-            # Punkte definieren (r,g,b -> als Farbe)
+            # Define points (r,g,b -> as color)
             ax.scatter(points[:, 1], points[:, 2], c=points[:, 3:6] / 255, s=3)
             ax.set_xlim(0, 255)
             ax.set_ylim(0, 255)
             ax.set_xticks(range(0, 256, 100))  
             ax.set_yticks(range(0, 256, 100)) 
             ax.set_aspect('equal', 'box')
-            #ax.set_title("Original" if idx == 0 else f"Aug {idx}")
+        
         
 
 def create_gray_images(all_images, axs, row_idx = 0):
@@ -430,7 +422,7 @@ def create_gray_images(all_images, axs, row_idx = 0):
             if figures:
                 ax.imshow(gray, cmap="gray")
                 ax.axis("off")
-            #ax.set_title("Original" if idx == 0 else f"Gray Aug {idx}")
+
     #Generate the remaining gray images
     if len(all_images) > MAX_UI_AUG_COUNT:
         for img in all_images[MAX_UI_AUG_COUNT:]:
@@ -483,7 +475,7 @@ def fig_to_png(fig):
 
 
 
-#---------------------------Hilfsfunktion und Variablen-------------------------------------------------
+#---------------------------Helper functions-------------------------------------------------
 
 def keep_dependent_ui_element_at_random_button(dependency, dependency_func_map : dict):
     if dependency is not None: 
@@ -499,20 +491,19 @@ def get_fig_ax(axs, row_index, idx):
     else:
         return axs[row_index, idx]
 
-#show_fancy_pca_info_bool = (aug_option == FANCYPCA_STR and start_augmentation) or (aug_option == FANCYGNG_STR and st.session_state.last_aug == FANCYPCA_STR and not start_augmentation)
-#show_fancy_gng_info_bool = (aug_option == FANCYGNG_STR and start_augmentation) or (aug_option == FANCYPCA_STR and st.session_state.last_aug == FANCYGNG_STR and not start_augmentation)
 
 
 
 
 
 
-#------------------------------------------Hauptverarbeitung----------------------------------------------------------------------------------
+
+#------------------------------------------Main processing----------------------------------------------------------------------------------
 if (start_augmentation or st.session_state.done) and st.session_state.uploaded_files:
     for uploaded_file in st.session_state.uploaded_files:
         filename = uploaded_file.name
 
-        # Falls bereits berechnet, überspringen
+        # If already calculated, skip
         if filename not in st.session_state.image_results and start_augmentation:
             st.session_state.last_aug = aug_option
             with st.spinner(f"Process {filename} ..."):
@@ -532,7 +523,7 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
                 
                 
     
-        # Info Anzeige
+        # information
         info = st.session_state.image_results[filename]
 
         if figures:
@@ -549,7 +540,7 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
             st.session_state.last_aug_info(filename, info)
         
 
-        #Grafik
+        #Graphics
         with st.spinner(f"Augmentation of {filename} completed ... Start visualization"):
             if filename not in st.session_state.fig_png:
                 image = Image.open(uploaded_file).convert("RGB")
@@ -571,16 +562,16 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
                
 
                 current_row = 0
-                 #main fig
+                #main fig
                 if figures:
                     create_main_plot([info["original"]] + info["aug_images"], axs, current_row)
                     current_row += 1
                     
-                # Punktwolke & Augmentierungen generieren
+                # Generate point cloud & augmentations
                 if show_point_cloud and figures:
                     create_point_cloud([info["original"]] + info["aug_images"], axs, current_row)
                     current_row += 1
-                #Gray scal ebild generieren
+                #Generate grayscale image
                 if show_gray_scale:
                     create_gray_images([info["original"]] + info["aug_images"], axs, current_row)
                 
@@ -589,13 +580,12 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
                     
                 if figures:   
                     fig.subplots_adjust(wspace=0.3, hspace=0.05)   
-                    #fig.tight_layout(pad=0.1)
                     png_buf = fig_to_png(fig)
                     st.session_state.fig_png[filename] = png_buf.getvalue()
                
                     
             
-            #Grafik anzeigen
+        #Show graphic
         if figures:
             st.image(st.session_state.fig_png[filename])
     st.session_state.done = True
@@ -604,7 +594,7 @@ if (start_augmentation or st.session_state.done) and st.session_state.uploaded_f
 
 
 
-#--------------------------------------------Download-Bereich----------------------------------------------
+#--------------------------------------------Download----------------------------------------------
 if st.session_state.image_results:
     st.divider()
     zip_buffer = io.BytesIO()
